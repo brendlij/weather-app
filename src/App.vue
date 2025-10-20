@@ -2,45 +2,44 @@
 import Header from "./components/Header.vue";
 import Weather from "./components/Weather.vue";
 import Search from "./components/Search.vue";
-import { ref } from "vue";
+import { useAppStore } from "@/stores/useAppStore.js";
+import { storeToRefs } from "pinia";
+import { onMounted } from "vue";
 
-const place = ref(null);
-function onPick(c) {
-  place.value = c;
-  // hier dein Wetter-Call:
-  // loadWeather(c.lat, c.lon)
+const app = useAppStore();
+const { weather, error, loading } = storeToRefs(app);
+
+async function onPick(c) {
+  if (!c || typeof c.lat !== 'number' || typeof c.lon !== 'number') {
+    app.$patch({ error: "Ungültiger Ort" });
+    return;
+  }
+  app.setLocation(c.lat, c.lon);
+  await app.loadWeather();
 }
+
+// Optional: Beim App-Start direkt Wetter für Default-Location laden
+onMounted(() => {
+  app.loadWeather().catch(() => {});
+});
 </script>
 
 <template>
   <div class="app">
-    <div class="header">
-      <Header />
-    </div>
-    <div class="searchbar">
-      <Search @select="onPick" />
-    </div>
+    <Header />
+    <Search @select="onPick" />
+
     <div class="weather">
-      <Weather />
+      <!-- Wenn du beim Refresh keinen Stale-Content willst, stell loading nach oben -->
+      <p v-if="loading">⏳ Lädt...</p>
+      <p v-else-if="error">❌ {{ error }}</p>
+      <Weather v-else-if="weather" :data="weather" :key="weather?.id ?? weather?.dt" />
+      <p v-else>🌤️ Bitte Ort auswählen...</p>
     </div>
   </div>
 </template>
 
 <style scoped>
-.app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin: 20px;
-}
-
-.header {
-  padding: 10px;
-}
-
-.weather {
-  margin-top: 20px;
-}
+.app { text-align: center; color: #2c3e50; margin: 20px; }
+.weather { margin-top: 20px; }
 </style>
